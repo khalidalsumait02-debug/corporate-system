@@ -9,6 +9,7 @@
   /* ---------- icons ---------- */
   const P = {
     home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+    menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
     chart:'<line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="6"/><rect x="11" y="8" width="3" height="10"/><rect x="16" y="5" width="3" height="13"/>',
     inbox:'<path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13l2-8h12l2 8v6H4z"/>',
     layers:'<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/>',
@@ -95,8 +96,10 @@
         <div class="me"><div class="av">${DB.rm.initials}</div>
           <div><div class="mn">${DB.rm.name}</div><div class="mr">Relationship Manager</div></div></div>
       </aside>
+      <div class="nav-overlay" data-act="menu"></div>
       <div class="main">
         <div class="topbar">
+          <button class="menu-btn" data-act="menu">${icon('menu')}</button>
           <div class="crumb" id="crumb"></div>
           <div class="search">
             ${icon('search')}
@@ -918,8 +921,10 @@
   document.addEventListener("click", (e)=>{
     const row = e.target.closest("tr.click,[data-href]");
     const act = e.target.closest("[data-act]");
+    if(e.target.closest("[data-nav]")) document.body.classList.remove("nav-open");
     if(act){
       const a=act.dataset.act, k=act.dataset.key, id=act.dataset.id;
+      if(a==="menu"){ document.body.classList.toggle("nav-open"); return; }
       if(a==="todo"){ const t=DB.todos.find(x=>x.id===id); t.done=!t.done; render(); return; }
       if(a==="grp"){ const g=act.dataset.id; ui.openGroups[g]=!ui.openGroups[g]; render(); return; }
       if(a==="rfilter"){ if(act.dataset.k==="client") reqClient=act.dataset.v; else reqStatus=act.dataset.v; render(); return; }

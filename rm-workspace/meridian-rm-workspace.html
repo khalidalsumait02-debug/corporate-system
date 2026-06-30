@@ -344,6 +344,48 @@ tbody tr.click:hover{background:var(--accent-soft)}
 .help-btn:hover{border-color:var(--ai-line);color:var(--ai);background:var(--ai-bg)}
 .help-btn svg{width:15px;height:15px}
 
+/* ---- responsive / mobile ---- */
+.menu-btn{display:none;width:38px;height:38px;border:1px solid var(--line);border-radius:9px;align-items:center;justify-content:center;color:var(--ink);background:#fff;flex:none}
+.menu-btn svg{width:18px;height:18px}
+.nav-overlay{display:none}
+@media (max-width:980px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .three{grid-template-columns:1fr 1fr}
+}
+@media (max-width:860px){
+  .sidebar{transform:translateX(-100%);transition:transform .25s ease;z-index:40;box-shadow:var(--shadow-lg)}
+  body.nav-open .sidebar{transform:none}
+  .nav-overlay{position:fixed;inset:0;background:rgba(15,44,68,.45);z-index:35}
+  body.nav-open .nav-overlay{display:block}
+  .main{margin-left:0}
+  .menu-btn{display:flex}
+  .topbar{padding:0 16px;gap:10px}
+  .crumb{display:none}
+  .search{width:auto;flex:1;margin-left:0}
+  .page{padding:18px 16px 64px}
+  .two,.three,.memo{grid-template-columns:1fr}
+  .kanban{grid-template-columns:1fr 1fr}
+  .gauges{gap:18px;justify-content:space-around}
+  .memo-side .card{position:static}
+  .page-head{flex-wrap:wrap}
+  .page-head .actions{margin-left:0}
+  .co-head{flex-direction:column}
+  .card .cb.flush{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .card .cb.flush table{min-width:620px}
+  .tabs{margin-bottom:16px}
+  .tour-pop{width:calc(100vw - 24px);max-width:326px}
+  .toast{left:16px;right:16px;width:auto}
+}
+@media (max-width:560px){
+  .stats,.kpis,.kanban{grid-template-columns:1fr}
+  .ribbon{font-size:11px;padding:7px 16px}
+  .page-head h1{font-size:20px}
+  .search{display:none}
+  .help-btn span{display:none}
+  .help-btn{padding:0 11px}
+}
+
 </style>
 </head>
 <body>
@@ -703,6 +745,7 @@ window.DB = (function () {
   /* ---------- icons ---------- */
   const P = {
     home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
+    menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
     chart:'<line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="6"/><rect x="11" y="8" width="3" height="10"/><rect x="16" y="5" width="3" height="13"/>',
     inbox:'<path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13l2-8h12l2 8v6H4z"/>',
     layers:'<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/>',
@@ -789,8 +832,10 @@ window.DB = (function () {
         <div class="me"><div class="av">${DB.rm.initials}</div>
           <div><div class="mn">${DB.rm.name}</div><div class="mr">Relationship Manager</div></div></div>
       </aside>
+      <div class="nav-overlay" data-act="menu"></div>
       <div class="main">
         <div class="topbar">
+          <button class="menu-btn" data-act="menu">${icon('menu')}</button>
           <div class="crumb" id="crumb"></div>
           <div class="search">
             ${icon('search')}
@@ -1612,8 +1657,10 @@ window.DB = (function () {
   document.addEventListener("click", (e)=>{
     const row = e.target.closest("tr.click,[data-href]");
     const act = e.target.closest("[data-act]");
+    if(e.target.closest("[data-nav]")) document.body.classList.remove("nav-open");
     if(act){
       const a=act.dataset.act, k=act.dataset.key, id=act.dataset.id;
+      if(a==="menu"){ document.body.classList.toggle("nav-open"); return; }
       if(a==="todo"){ const t=DB.todos.find(x=>x.id===id); t.done=!t.done; render(); return; }
       if(a==="grp"){ const g=act.dataset.id; ui.openGroups[g]=!ui.openGroups[g]; render(); return; }
       if(a==="rfilter"){ if(act.dataset.k==="client") reqClient=act.dataset.v; else reqStatus=act.dataset.v; render(); return; }
