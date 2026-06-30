@@ -184,6 +184,59 @@ window.DB = (function () {
     {dcr:"pending",risk:"pending",cinet:"progress",presentation:"pending",spreading:"progress"},
   ];
 
+  const r3=(n)=>Math.round(n*100)/100;
+  function classify(c, idx){
+    const fac=facilities(c, idx); let cl=0,cu=0,nl=0,nu=0;
+    fac.forEach(f=>{ const nc=/Guarantee|LC|Trade/.test(f.type); if(nc){nl+=f.limit;nu+=f.util;}else{cl+=f.limit;cu+=f.util;} });
+    return {fac, cash:{limit:r2(cl),util:r2(cu)}, nonCash:{limit:r2(nl),util:r2(nu)}};
+  }
+  function synthExposure(c, idx){ const x=classify(c,idx);
+    return {cash:x.cash, nonCash:x.nonCash, total:{limit:r2(x.cash.limit+x.nonCash.limit), util:r2(x.cash.util+x.nonCash.util)}}; }
+  function synthMarket(c, idx){ const e=synthExposure(c,idx);
+    const sC=0.18+(idx%5)*0.06, sN=0.15+(idx%4)*0.07;
+    const mc={limit:r2(e.cash.limit/sC), util:r2(e.cash.util/sC)};
+    const mn={limit:e.nonCash.limit?r2(e.nonCash.limit/sN):0, util:e.nonCash.util?r2(e.nonCash.util/sN):0};
+    const mt={limit:r2(mc.limit+mn.limit), util:r2(mc.util+mn.util)};
+    return {cash:mc, nonCash:mn, total:mt,
+      share: mt.util?e.total.util/mt.util:0,
+      shareCash: mc.util?e.cash.util/mc.util:0,
+      shareNonCash: mn.util?e.nonCash.util/mn.util:0 }; }
+  function synthIncome(c, idx){
+    const tot=c.funded+c.nonfunded, F={"2023":0.86,"2024":0.94,"2025":1.0,"YTD 2026":0.42}, w=(idx%7)*0.02;
+    const out={};
+    Object.entries(F).forEach(([y,f])=>{
+      const nii=r3((c.funded*0.052+w)*f), fx=r3((tot*0.006)*f), liab=r3((tot*0.013)*f),
+            lc=r3((c.nonfunded*0.020)*f), lg=r3((c.nonfunded*0.016)*f), fees=r3((tot*0.004)*f);
+      out[y]={nii,fx,liab,lc,lg,fees,total:r3(nii+fx+liab+lc+lg+fees)};
+    });
+    return out;
+  }
+  function synthRorwa(c){ const rwa=c.funded*1.0+c.nonfunded*0.5; const inc=c.funded*0.052+(c.funded+c.nonfunded)*0.023; return rwa?((inc/rwa)*100).toFixed(1)+"%":"—"; }
+  function synthCovenants(c){
+    const red=c.rag==="red", amb=c.rag==="amber";
+    return [
+      {name:"Debt-service coverage (DSCR)", req:"≥ 1.25x", actual: red?"1.08x":amb?"1.31x":"1.66x", status: red?"breach":amb?"watch":"ok"},
+      {name:"Net debt / EBITDA", req:"≤ 3.5x", actual: red?"3.9x":amb?"3.2x":"2.4x", status: red?"breach":"ok"},
+      {name:"Tangible net worth", req:"≥ KWD "+Math.round(c.limit*0.6)+"M", actual:"KWD "+Math.round(c.limit*(red?0.55:0.95))+"M", status: red?"watch":"ok"},
+    ];
+  }
+  function synthDocs(c, idx){
+    const D=["Mar 2026","May 2026","Aug 2026","Nov 2026","Feb 2027"];
+    const st=(i)=> (idx+i)%5===0?"due-soon":"current";
+    return [
+      {doc:"Audited financials FY2025", due:D[idx%5], status: c.rag==="red"?"overdue":"current"},
+      {doc:"Insurance — asset cover", due:D[(idx+1)%5], status: st(1)},
+      {doc:"KYC periodic review", due: c.rag==="red"?"Overdue":D[(idx+2)%5], status: c.rag==="red"?"overdue":"current"},
+      {doc:"Collateral valuation", due:D[(idx+3)%5], status: st(3)},
+      {doc:"Facility expiry — lead facility", due:D[(idx+4)%5], status: st(4)},
+    ];
+  }
+  function synthCollateral(c, idx){
+    const secured=r2(c.funded*0.7+c.nonfunded), cov=c.rag==="red"?0.9:c.rag==="amber"?1.15:1.42, val=r2(secured*cov);
+    const T={"Real Estate":"First mortgage over property","Real Estate / Malls":"Mortgage & rental assignment","Retail Mall":"Mortgage & rental assignment","Construction & Contracting":"Assignment of contract proceeds","Petrochemicals":"Plant, machinery & assignment","Building Materials":"Plant & machinery","Electrical / Cables":"Plant & inventory pledge"};
+    return { items:[{type:T[c.sector]||"Corporate guarantee & receivables", value:val},{type:"Cash margin / lien", value:r2(c.nonfunded*0.15)}],
+      secured, coverage: secured?Math.round(val/secured*100):0 };
+  }
   const companies = [];
   let gi=0;
   GROUPS.forEach(g=>{
@@ -203,6 +256,13 @@ window.DB = (function () {
         facilities: facilities(m, idx),
         memo: m.memo || MEMO_SETS[idx % MEMO_SETS.length],
         news: m.news || [],
+        exposure: synthExposure(m, idx),
+        market: synthMarket(m, idx),
+        income: synthIncome(m, idx),
+        rorwa: synthRorwa(m),
+        covenants: synthCovenants(m),
+        documents: synthDocs(m, idx),
+        collateral: synthCollateral(m, idx),
       }, m));
     });
     gi++;

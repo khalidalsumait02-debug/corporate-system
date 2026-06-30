@@ -4,7 +4,7 @@
   const DB = window.DB;
   const $ = (s, r=document) => r.querySelector(s);
   const fmt = DB.fmt;
-  const ui = { openGroups:{}, accepted:{}, editing:{}, generated:{}, chat:[], chatBusy:false };
+  const ui = { openGroups:{}, accepted:{}, editing:{}, generated:{}, chat:[], chatBusy:false, coTab:'overview', profitScope:'company', tour:{open:false,step:0}, tourSeen:false };
 
   /* ---------- icons ---------- */
   const P = {
@@ -76,6 +76,7 @@
     {id:"requests", label:"Request Tracker", icon:"inbox", badge:atRisk},
     {id:"cases", label:"Case Tracker", icon:"layers"},
     {id:"leads", label:"Leads", icon:"target"},
+    {id:"watchlist", label:"Watchlist", icon:"alert", badge:watchCount()},
     {g:"Assist"},
     {id:"assistant", label:"RM Assistant", icon:"spark"},
   ];
@@ -102,6 +103,7 @@
             <input id="gsearch" placeholder="Search clients, groups, CR numbers…" autocomplete="off"/>
             <div class="results" id="sresults"></div>
           </div>
+          <button class="help-btn" data-act="tour-start">${icon('spark')} Tour</button>
           <button class="bell">${icon('bell')}<span class="dot"></span></button>
         </div>
         <div class="ribbon">${icon('alert',13)} <span>${DB.disclaimer}</span></div>
@@ -132,7 +134,7 @@
   const routes = {
     dashboard: pageDashboard, analytics: pageAnalytics, requests: pageRequests,
     cases: pageCases, leads: pageLeads, assistant: pageAssistant,
-    company: pageCompany, memo: pageMemo,
+    company: pageCompany, memo: pageMemo, watchlist: pageWatchlist,
   };
   function parse(){
     const h = (location.hash||"#/dashboard").replace(/^#\//,"");
@@ -150,6 +152,9 @@
     view.innerHTML = `<div class="page fade-in">${routes[name](param)}</div>`;
     window.scrollTo(0,0);
     if(name==="assistant") mountAssistant();
+    const tt=document.getElementById('ttoast'); if(tt) tt.remove();
+    if(ui.tour && ui.tour.open) tourRender();
+    else if(name==="dashboard") showTourToast();
   }
 
   /* ========== PAGE 1 — DASHBOARD ========== */
@@ -616,36 +621,48 @@
     setTimeout(()=>{ ui.chatBusy=false; ui.chat.push({role:"a", html:ans}); drawChat(); }, 950);
   }
 
-  /* ========== COMPANY PAGE ========== */
+  /* ========== COMPANY PAGE (tabbed) ========== */
+  const kwdm = (n)=>"KWD "+Number(n).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})+"M";
+  const tip = (txt,t)=>`<span class="tipw" data-tip="${t}">${txt}</span>`;
+  const pct = (a,b)=> b? Math.round(a/b*100):0;
+  const gauge = (frac,label)=>{ const p=Math.round((frac||0)*100); return `<div class="gauge"><div class="ring" style="background:conic-gradient(var(--accent) ${p*3.6}deg, var(--line-soft) 0)"><div class="in"><div><b>${p}%</b></div></div></div><div class="lab">${label}</div></div>`; };
+  const covPill = (s)=> s==="breach"?pill("Breach","red"): s==="watch"?pill("Watch","amber"): pill("On track","green");
+  const docPill = (s)=> s==="overdue"?pill("Overdue","red"): s==="due-soon"?pill("Due soon","amber"): pill("Current","green");
+  const isNonCash = (t)=>/Guarantee|LC|Trade/.test(t);
+
+  function groupIncome(gname){
+    const ms=DB.groups[gname]||[]; const ys=["2023","2024","2025","YTD 2026"]; const agg={};
+    ys.forEach(y=>{ agg[y]={nii:0,fx:0,liab:0,lc:0,lg:0,fees:0,total:0};
+      ms.forEach(m=>{ const r=m.income[y]; ["nii","fx","liab","lc","lg","fees","total"].forEach(k=>agg[y][k]+=r[k]); }); });
+    Object.values(agg).forEach(o=>Object.keys(o).forEach(k=>o[k]=Math.round(o[k]*100)/100));
+    return agg;
+  }
+
+  const INCOME_COLS = [
+    ["nii","Interest income","Net interest income earned on the client's funded facilities"],
+    ["fx","FX income","Spreads & margins on the client's foreign-exchange business"],
+    ["liab","Liability income","Value generated from the client's deposits & current-account balances"],
+    ["lc","LC commission","Commission on Letters of Credit (trade finance)"],
+    ["lg","LG commission","Commission on Letters of Guarantee"],
+    ["fees","Fees income","Arrangement, processing, account & other fees"],
+  ];
+
   function pageCompany(id){
     const c = DB.byId[id]; if(!c) return `<div class="empty">Company not found.</div>`;
     setCrumb(["Meridian","Portfolio",c.name]);
+    const tab = ui.coTab || "overview";
     const reqs = DB.requests.filter(r=>r.companyId===c.id);
-    const facRows = c.facilities.map(f=>`<tr>
-      <td class="tname">${f.type}</td><td class="right tnum">${fmt(f.limit)}</td>
-      <td class="right tnum">${fmt(f.util)}</td><td class="right tnum">${fmt(f.limit-f.util)}</td>
-      <td>${f.expiry}</td><td class="muted">${f.margin}</td><td class="muted">${f.sec}</td></tr>`).join("");
+    const breaches = c.covenants.filter(v=>v.status==="breach").length;
+    const overdue = c.documents.filter(d=>d.status==="overdue").length;
+    const attn = breaches+overdue;
 
-    const gen = ui.generated["prof_"+c.id];
-    const profCard = gen
-      ? `<table><thead><tr><th>Metric</th><th class="right">Per client</th><th class="right">Per group</th></tr></thead><tbody>
-          ${[["Revenue",c.profit.revenue,c.profit.revenue*2.3],["Net interest income",c.profit.nii,c.profit.nii*2.3],
-             ["Fee income",c.profit.fees,c.profit.fees*2.3],["Return on equity",c.profit.roe,"13.6%"]].map(([k,v,g])=>
-            `<tr><td>${k}</td><td class="right tnum">${typeof v==='number'?v.toFixed(2)+'M':v}</td><td class="right tnum">${typeof g==='number'?g.toFixed(2)+'M':g}</td></tr>`).join("")}
-        </tbody></table>`
-      : `<div class="center" style="padding:24px 0">
-          <p class="muted" style="font-size:13px;margin:0 0 14px">Generate profitability & exposure tables, per client and per group.</p>
-          <button class="btn ai" data-act="gen-prof" data-id="${c.id}">${spark} Generate tables</button></div>`;
+    const TABS=[["overview","Overview","home",0],["exposure","Exposure & Limits","layers",0],
+      ["profit","Profitability","chart",0],["facilities","Facilities & Collateral","money",0],
+      ["covenants","Covenants & Documents","file",attn],["news","News","bell",0]];
 
-    const news = c.news.length?c.news.map(n=>`<div class="news" style="padding:13px 0">
-        <span class="dotc" style="background:var(--${n.rag==='red'?'red':n.rag==='amber'?'amber':'green'})"></span>
-        <div><div class="nt">${n.t}</div><div class="ns">${spark2()} ${n.s}</div>
-        <div class="faint" style="font-size:11.5px;margin-top:4px">${n.date}</div></div></div>`).join("")
-      : `<div class="empty">No recent company news.</div>`;
-
-    return `
-    <div class="page-head"><div>
-      <div class="crumb" style="margin-bottom:6px"><a class="linklike" href="#/dashboard">${icon('arrow',13)} Back to portfolio</a></div>
+    const head = `
+    <div class="page-head" style="margin-bottom:14px"><div>
+      <div class="crumb"><a class="linklike" href="#/dashboard">${icon('arrow',13)} Back to portfolio</a></div>
     </div></div>
     <div class="co-head">
       <div class="co-logo">${c.short}</div>
@@ -667,53 +684,225 @@
         <a class="btn" href="#/requests">${icon('inbox',15)} ${reqs.length} request${reqs.length!==1?'s':''}</a>
       </div>
     </div>
+    <div class="tabs">${TABS.map(t=>`<div class="tab ${tab===t[0]?'on':''}" data-act="cotab" data-tab="${t[0]}">${icon(t[2])}${t[1]}${t[3]?`<span class="ct">${t[3]}</span>`:''}</div>`).join("")}</div>`;
 
-    ${aiBlock("co_"+c.id, "AI briefing · summarised from filings, financials & news",
-      `<p style="margin:0">${c.name} is a ${c.rating.toLowerCase().includes('strong')?'strong':c.rag==='red'?'closely-watched':'satisfactory'} ${c.sector.toLowerCase()} name, banking with us since ${c.since}. Total exposure stands at ${fmt(c.funded+c.nonfunded)} against limits of ${fmt(c.limit)}. ${c.ragReason} Latest ROE ${c.profit.roe} (prior ${c.profit.prevRoe}).</p>`)}
-
-    ${c.pub?`<div class="card" style="margin-top:18px">
-      <div class="ch">${icon('file')}<h3>Public filing snapshot</h3>
-        <span class="pill green">Real public data</span>
-        <div class="right faint" style="font-size:11.5px">Source: ${c.pub.src}</div></div>
-      <div class="cb">
-        <div class="co-meta" style="margin:0">
-          ${c.pub.rev?`<div class="m"><div class="k">Revenue ${c.pub.year?'· '+c.pub.year:''}</div><div class="v">${DB.fmtPub(c.pub.rev,c.pub.cur)}</div></div>`:''}
-          ${c.pub.net?`<div class="m"><div class="k">Net profit</div><div class="v">${DB.fmtPub(c.pub.net,c.pub.cur)}</div></div>`:''}
-          ${c.pub.rating?`<div class="m"><div class="k">Public rating</div><div class="v">${c.pub.rating}</div></div>`:''}
-          ${c.ticker?`<div class="m"><div class="k">Listing</div><div class="v">${c.ticker}</div></div>`:''}
-        </div>
-        ${c.pub.note?`<p class="muted" style="font-size:12.5px;margin:12px 0 0">${c.pub.note}</p>`:''}
-      </div></div>`:''}
-
-    <div class="two" style="margin-top:18px">
-      <div class="card"><div class="ch">${icon('money')}<h3>Credit facilities</h3>
-        <div class="right faint" style="font-size:12px">Funded ${fmt(c.funded)} · Non-funded ${fmt(c.nonfunded)}</div></div>
-        <div class="cb flush"><table><thead><tr><th>Facility</th><th class="right">Limit</th><th class="right">Utilised</th><th class="right">Available</th><th>Expiry</th><th>Pricing</th><th>Security</th></tr></thead>
-        <tbody>${facRows}</tbody></table></div></div>
-    </div>
-
-    <div class="three" style="margin-top:18px">
-      <div class="card"><div class="ch">${icon('users')}<h3>KYC</h3></div><div class="cb">
-        <div class="kv"><div class="c"><div class="k">Incorporated</div><div class="v">${c.kyc.inc}</div></div>
-          <div class="c"><div class="k">Domicile</div><div class="v">${c.kyc.domicile}</div></div>
-          <div class="c"><div class="k">UBO</div><div class="v">${c.ubo}</div></div>
-          <div class="c"><div class="k">KYC review</div><div class="v">${c.kyc.review}</div></div>
-          <div class="c" style="grid-column:1/3"><div class="k">Status</div><div class="v">${c.kyc.status==='Current'?pill('Current','green'):pill(c.kyc.status,'amber')}</div></div></div>
-      </div></div>
-      <div class="card"><div class="ch">${icon('layers')}<h3>Exposure</h3></div><div class="cb">
-        <div class="kv"><div class="c"><div class="k">Funded</div><div class="v">${fmt(c.funded)}</div></div>
-          <div class="c"><div class="k">Non-funded</div><div class="v">${fmt(c.nonfunded)}</div></div>
-          <div class="c"><div class="k">Total limits</div><div class="v">${fmt(c.limit)}</div></div>
-          <div class="c"><div class="k">Utilisation</div><div class="v">${Math.round(c.util/c.limit*100)}%</div></div></div>
-        <div class="bar-track" style="margin-top:12px"><div class="bar-fill" style="width:${Math.round(c.util/c.limit*100)}%"></div></div>
-      </div></div>
-      <div class="card"><div class="ch">${spark2()}<h3>Relationship economics</h3>${aiBadge('Illustrative · on demand')}</div>
-        <div class="cb flush" id="profcard" style="padding:0 16px">${profCard}</div></div>
-    </div>
-
-    <div class="card" style="margin-top:18px"><div class="ch">${icon('bell')}<h3>Company news</h3>${aiBadge('AI-summarised')}</div>
-      <div class="cb">${news}</div></div>`;
+    const body = {overview:coOverview, exposure:coExposure, profit:coProfit, facilities:coFacilities, covenants:coCovenants, news:coNews}[tab](c);
+    return head + `<div class="fade-in">${body}</div>`;
   }
+
+  function coOverview(c){
+    const share=c.market.share;
+    const kpis = `<div class="kpis">
+      <div class="kpi"><div class="k">${icon('layers',14)} Our exposure</div><div class="v">${fmt(c.exposure.total.util)}</div><div class="s">of ${fmt(c.exposure.total.limit)} limit · ${pct(c.exposure.total.util,c.exposure.total.limit)}% used</div></div>
+      <div class="kpi"><div class="k">${icon('target',14)} ${tip('Market share','Our exposure as a share of the client\'s total exposure across all banks (per CINET)')}</div><div class="v">${Math.round(share*100)}%</div><div class="s">of ${fmt(c.market.total.util)} total market</div></div>
+      <div class="kpi"><div class="k">${icon('money',14)} ${tip('RoRWA','Return on risk-weighted assets — relationship income relative to capital used')}</div><div class="v">${c.rorwa}</div><div class="s">FY2025 income ${kwdm(c.income['2025'].total)}</div></div>
+      <div class="kpi"><div class="k">${icon('alert',14)} Risk rating</div><div class="v">${c.rating.split(' ')[0]}</div><div class="s">${c.rating.replace(/^[0-9]+ /,'').replace(/[()]/g,'')}</div></div>
+    </div>`;
+
+    const attn = [];
+    c.covenants.filter(v=>v.status!=="ok").forEach(v=>attn.push({sev:v.status==="breach"?"red":"amber", ic:"alert", t:`${v.name}: ${v.actual} (needs ${v.req})`}));
+    c.documents.filter(d=>d.status!=="current").forEach(d=>attn.push({sev:d.status==="overdue"?"red":"amber", ic:"clock", t:`${d.doc} — ${d.status==="overdue"?"overdue":"due "+d.due}`}));
+    const attnCard = attn.length?`<div class="card"><div class="ch">${icon('alert')}<h3>Needs attention</h3><span class="pill ${attn.some(a=>a.sev==='red')?'red':'amber'}">${attn.length}</span></div>
+      <div class="cb">${attn.map(a=>`<div class="alert-row"><div class="alert-ic ${a.sev==='red'?'':''}" style="background:var(--${a.sev}-bg);color:var(--${a.sev})">${icon(a.ic,15)}</div><div style="flex:1">${a.t}</div></div>`).join("")}
+      <div style="margin-top:10px"><button class="btn sm" data-act="cotab" data-tab="covenants">${icon('file',14)} View covenants & documents</button></div></div></div>`
+      :`<div class="card"><div class="ch">${icon('check')}<h3>Needs attention</h3>${pill('All clear','green')}</div><div class="cb muted" style="font-size:13px">No covenant or document items outstanding.</div></div>`;
+
+    const pubCard = c.pub?`<div class="card"><div class="ch">${icon('file')}<h3>Public filing snapshot</h3><span class="pill green">Real public data</span><div class="right faint" style="font-size:11.5px">Source: ${c.pub.src}</div></div>
+      <div class="cb"><div class="co-meta" style="margin:0">
+        ${c.pub.rev?`<div class="m"><div class="k">Revenue ${c.pub.year?'· '+c.pub.year:''}</div><div class="v">${DB.fmtPub(c.pub.rev,c.pub.cur)}</div></div>`:''}
+        ${c.pub.net?`<div class="m"><div class="k">Net profit</div><div class="v">${DB.fmtPub(c.pub.net,c.pub.cur)}</div></div>`:''}
+        ${c.pub.rating?`<div class="m"><div class="k">Public rating</div><div class="v">${c.pub.rating}</div></div>`:''}
+        ${c.ticker?`<div class="m"><div class="k">Listing</div><div class="v">${c.ticker}</div></div>`:''}
+      </div>${c.pub.note?`<p class="muted" style="font-size:12.5px;margin:12px 0 0">${c.pub.note}</p>`:''}</div></div>`:'';
+
+    const kyc = `<div class="card"><div class="ch">${icon('users')}<h3>KYC</h3></div><div class="cb">
+      <div class="kv"><div class="c"><div class="k">Incorporated</div><div class="v">${c.kyc.inc}</div></div>
+        <div class="c"><div class="k">Domicile</div><div class="v">${c.kyc.domicile}</div></div>
+        <div class="c"><div class="k">UBO</div><div class="v">${c.ubo}</div></div>
+        <div class="c"><div class="k">KYC review</div><div class="v">${c.kyc.review}</div></div>
+        <div class="c" style="grid-column:1/3"><div class="k">Status</div><div class="v">${c.kyc.status==='Current'?pill('Current','green'):pill(c.kyc.status,'amber')}</div></div></div></div></div>`;
+
+    return kpis + aiBlock("co_"+c.id, "AI briefing · summarised from filings, financials & news",
+      `<p style="margin:0">${c.name} is a ${c.rating.toLowerCase().includes('strong')?'strong':c.rag==='red'?'closely-watched':'satisfactory'} ${c.sector.toLowerCase()} name, banking with us since ${c.since}. Our exposure is ${fmt(c.exposure.total.util)} (${Math.round(c.market.share*100)}% of an estimated ${fmt(c.market.total.util)} total market exposure). ${c.ragReason} FY2025 relationship income ${kwdm(c.income['2025'].total)} at ${c.rorwa} RoRWA.</p>`)
+      + `<div class="two" style="margin-top:18px">${attnCard}${pubCard||kyc}</div>` + (pubCard?`<div class="two" style="margin-top:18px">${kyc}</div>`:'');
+  }
+
+  function coExposure(c){
+    const exCells=(o)=>{ const p=pct(o.util,o.limit); return `<td class="right tnum">${fmt(o.limit)}</td><td class="right tnum">${fmt(o.util)}</td><td class="right">${p}%</td><td class="right tnum">${fmt(Math.round((o.limit-o.util)*10)/10)}</td>`; };
+    const exTable=(title,icn,badge,src,ex)=>`<div class="card"><div class="ch">${icon(icn)}<h3>${title}</h3>${badge}${src?`<div class="right faint" style="font-size:11.5px">${src}</div>`:''}</div>
+      <div class="cb flush"><table>
+        <thead><tr><th>Exposure type</th><th class="right">Limit</th><th class="right">Utilised</th><th class="right">Util %</th><th class="right">Available</th></tr></thead>
+        <tbody>
+          <tr><td class="tname">${tip('Cash (funded)','Drawn lending — loans, overdrafts, working capital')}</td>${exCells(ex.cash)}</tr>
+          <tr><td class="tname">${tip('Non-cash','Contingent exposure — Letters of Credit, Letters of Guarantee')}</td>${exCells(ex.nonCash)}</tr>
+          <tr style="font-weight:750;background:#fafbfc"><td>Total</td>${exCells(ex.total)}</tr>
+        </tbody></table></div></div>`;
+
+    return `<div data-tour="exposure">
+    <div class="two">
+      ${exTable("Our Bank exposure","layers",pill("Our book","blue"),"",c.exposure)}
+      ${exTable("Total market exposure","building",`<span class="pill grey">All banks</span>`, "Source: "+tip("CINET","Kuwait's credit bureau — aggregates a borrower's exposure across all banks"), c.market)}
+    </div>
+    <div class="card" style="margin-top:18px"><div class="ch">${icon('target')}<h3>Share of wallet</h3>
+      <div class="right faint" style="font-size:12px">Our exposure as a share of the client's total market exposure</div></div>
+      <div class="cb"><div class="gauges">
+        ${gauge(c.market.share,"Overall")}
+        ${gauge(c.market.shareCash,"Cash")}
+        ${gauge(c.market.shareNonCash,"Non-cash")}
+        <div style="align-self:center;max-width:340px" class="muted">
+          <p style="margin:0;font-size:13px">We hold <b>${fmt(c.exposure.total.util)}</b> of an estimated <b>${fmt(c.market.total.util)}</b> total market exposure — there is ${c.market.share<0.35?'clear headroom to grow wallet share':'a strong, well-established share'} with this client.</p></div>
+      </div></div></div></div>`;
+  }
+
+  function coProfit(c){
+    const scope = ui.profitScope || "company";
+    const inc = scope==="group" ? groupIncome(c.group||c.name) : c.income;
+    const years = ["2023","2024","2025","YTD 2026"];
+    const head = `<thead><tr><th>Year</th>${INCOME_COLS.map(col=>`<th class="right">${tip(col[1],col[2])}</th>`).join("")}<th class="right">Total income</th></tr></thead>`;
+    const rows = years.map(y=>{ const r=inc[y]; return `<tr><td class="tname">${y}</td>${INCOME_COLS.map(col=>`<td class="right tnum">${kwdm(r[col[0]])}</td>`).join("")}<td class="right tnum" style="font-weight:750">${kwdm(r.total)}</td></tr>`; }).join("");
+    const max = Math.max(...years.map(y=>inc[y].total));
+    const trend = years.map(y=>`<div class="bar-row"><div class="bl">${y}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.round(inc[y].total/max*100)}%"></div></div><div class="bv">${kwdm(inc[y].total)}</div></div>`).join("");
+
+    return `<div data-tour="profit">
+    <div class="spread" style="margin-bottom:14px">
+      <div class="muted" style="font-size:13px">Income this ${scope==='group'?'group':'client'} generated for the bank, by line and by year. ${aiBadge('Illustrative')}</div>
+      <div class="toggle">
+        <button class="${scope==='company'?'on':''}" data-act="pgroup" data-v="company">This company</button>
+        <button class="${scope==='group'?'on':''}" data-act="pgroup" data-v="group">Whole group</button>
+      </div>
+    </div>
+    <div class="card"><div class="ch">${icon('chart')}<h3>Profitability — ${scope==='group'?(c.group||c.name):c.name}</h3>
+      <div class="right faint" style="font-size:12px">KWD millions</div></div>
+      <div class="cb flush"><table>${head}<tbody>${rows}</tbody></table></div></div>
+    <div class="card" style="margin-top:18px"><div class="ch">${icon('chart')}<h3>Total income trend</h3></div>
+      <div class="cb"><div class="bars">${trend}</div></div></div></div>`;
+  }
+
+  function coFacilities(c){
+    const noteFor=(t)=> isNonCash(t)?"Counter-indemnity executed · annual review":"Financial covenants apply · annual review";
+    const rows = c.facilities.map(f=>`<tr>
+      <td><div class="tname">${f.type}</div><div class="tsub">${isNonCash(f.type)?pill('Non-cash','grey'):pill('Cash','blue')}</div></td>
+      <td class="right tnum">${fmt(f.limit)}</td><td class="right tnum">${fmt(f.util)}</td><td class="right tnum">${fmt(Math.round((f.limit-f.util)*10)/10)}</td>
+      <td>${f.margin}</td><td class="muted">${f.sec}</td><td>${f.expiry}</td>
+      <td class="muted" style="font-size:12px">${noteFor(f.type)}</td></tr>`).join("");
+    const col = c.collateral;
+    return `<div class="card"><div class="ch">${icon('money')}<h3>Current facilities</h3>
+      <div class="right faint" style="font-size:12px">Cash ${fmt(c.exposure.cash.util)} · Non-cash ${fmt(c.exposure.nonCash.util)}</div></div>
+      <div class="cb flush"><table>
+        <thead><tr><th>Facility</th><th class="right">Limit</th><th class="right">Utilised</th><th class="right">Available</th><th>Pricing</th><th>Collateral</th><th>Expiry</th><th>Notes / T&C</th></tr></thead>
+        <tbody>${rows}</tbody></table></div></div>
+    <div class="two" style="margin-top:18px">
+      <div class="card"><div class="ch">${icon('layers')}<h3>Collateral coverage</h3>
+        <span class="pill ${col.coverage>=120?'green':col.coverage>=100?'amber':'red'}">${col.coverage}% cover</span></div>
+        <div class="cb">
+          <div class="bar-track" style="height:14px"><div class="bar-fill" style="width:${Math.min(100,col.coverage)}%;background:${col.coverage>=120?'var(--green)':col.coverage>=100?'var(--amber)':'var(--red)'}"></div></div>
+          <div class="spread" style="margin-top:8px"><span class="faint" style="font-size:12px">Secured exposure ${fmt(col.secured)}</span><span class="faint" style="font-size:12px">Collateral value ${fmt(col.items.reduce((a,i)=>a+i.value,0))}</span></div>
+          <div class="divider"></div>
+          ${col.items.map(i=>`<div class="spread" style="padding:5px 0"><span>${i.type}</span><span class="tnum">${fmt(i.value)}</span></div>`).join("")}
+        </div></div>
+      <div class="card"><div class="ch">${icon('alert')}<h3>Single-obligor check</h3>${aiBadge('vs CBK cap')}</div>
+        <div class="cb"><p class="muted" style="font-size:13px;margin:0 0 10px">Group exposure measured against the ${tip('CBK 15% large-exposure cap','Central Bank of Kuwait limits a single obligor/group to 15% of the bank\'s regulatory capital')}.</p>
+          <div class="bar-track" style="height:14px"><div class="bar-fill" style="width:${Math.min(100, pct(c.exposure.total.util, c.exposure.total.limit))}%"></div></div>
+          <div class="spread" style="margin-top:8px"><span class="faint" style="font-size:12px">Within approved limit</span><span class="pill green">Compliant</span></div></div></div>
+    </div>`;
+  }
+
+  function coCovenants(c){
+    const cov = c.covenants.map(v=>`<tr><td class="tname">${v.name}</td><td class="muted">${v.req}</td><td class="tnum">${v.actual}</td><td>${covPill(v.status)}</td></tr>`).join("");
+    const docs = c.documents.map(d=>`<tr><td class="tname">${d.doc}</td><td class="muted">${d.due}</td><td>${docPill(d.status)}</td></tr>`).join("");
+    return `<div class="two">
+      <div class="card"><div class="ch">${icon('file')}<h3>Financial covenants</h3></div>
+        <div class="cb flush"><table><thead><tr><th>Covenant</th><th>Required</th><th>Actual</th><th>Status</th></tr></thead><tbody>${cov}</tbody></table></div></div>
+      <div class="card"><div class="ch">${icon('clock')}<h3>Documents & review diary</h3></div>
+        <div class="cb flush"><table><thead><tr><th>Item</th><th>Due</th><th>Status</th></tr></thead><tbody>${docs}</tbody></table></div></div>
+    </div>`;
+  }
+
+  function coNews(c){
+    const news = c.news.length?c.news.map(n=>`<div class="news" style="padding:14px 0">
+      <span class="dotc" style="background:var(--${n.rag==='red'?'red':n.rag==='amber'?'amber':'green'})"></span>
+      <div><div class="nt">${n.t}</div><div class="ns">${spark2()} ${n.s}</div>
+      <div class="faint" style="font-size:11.5px;margin-top:4px">${n.date}</div></div></div>`).join("")
+      :`<div class="empty">No recent company news.</div>`;
+    return `<div class="card"><div class="ch">${icon('bell')}<h3>Company news</h3>${aiBadge('AI-summarised')}</div><div class="cb">${news}</div></div>`;
+  }
+
+  /* ========== WATCHLIST ========== */
+  function watchSignals(c){
+    const sig=[];
+    if(c.covenants.some(v=>v.status==="breach")) sig.push({t:"Covenant breach",sev:"red"});
+    else if(c.covenants.some(v=>v.status==="watch")) sig.push({t:"Covenant watch",sev:"amber"});
+    if(c.documents.some(d=>d.status==="overdue")) sig.push({t:"Document overdue",sev:"red"});
+    if(c.collateral.coverage<100) sig.push({t:"Collateral cover <100%",sev:"amber"});
+    if(DB.requests.some(r=>r.companyId===c.id&&r.atRisk&&r.status!=="Completed")) sig.push({t:"At-risk request",sev:"red"});
+    if(c.rag==="red"&&!sig.length) sig.push({t:"Watch rating",sev:"red"});
+    return sig;
+  }
+  function watchCount(){ return DB.companies.filter(c=>watchSignals(c).some(s=>s.sev==="red")).length; }
+  function pageWatchlist(){
+    setCrumb(["Meridian","Watchlist"]);
+    const rows = DB.companies.map(c=>({c,sig:watchSignals(c)})).filter(x=>x.sig.length)
+      .sort((a,b)=>(b.sig.some(s=>s.sev==='red')?1:0)-(a.sig.some(s=>s.sev==='red')?1:0));
+    const red=rows.filter(r=>r.sig.some(s=>s.sev==='red')).length;
+    const body = rows.map(({c,sig})=>{ const sev=sig.some(s=>s.sev==='red')?'red':'amber';
+      return `<tr class="click" data-href="#/company/${c.id}">
+        <td style="width:10px"><span class="wl-sev" style="background:var(--${sev})"></span></td>
+        <td><div class="tname">${c.name}</div><div class="tsub">${c.group||'Standalone'} · ${c.sector}</div></td>
+        <td>${sig.map(s=>`<span class="sig ${s.sev}">${s.t}</span>`).join("")}</td>
+        <td class="right tnum">${fmt(c.exposure.total.util)}</td>
+        <td>${pill(ragWord[c.rag],c.rag)}</td></tr>`; }).join("");
+    return `<div class="page-head"><div><h1>Watchlist & early warning</h1>
+      <p>Clients showing covenant, document, collateral or service signals — sorted by severity.</p></div>
+      <div class="actions"><span class="pill red"><span class="d"></span>${red} need action</span>${aiBadge('Auto-flagged')}</div></div>
+      <div class="card"><div class="cb flush"><table>
+        <thead><tr><th></th><th>Client</th><th>Signals</th><th class="right">Our exposure</th><th>Status</th></tr></thead>
+        <tbody>${body||'<tr><td colspan="5"><div class="empty">Nothing on the watchlist.</div></td></tr>'}</tbody></table></div></div>`;
+  }
+
+  /* ========== GUIDED TOUR ========== */
+  const TOUR=[
+    {route:"#/dashboard", sel:".stats", title:"Your morning snapshot", text:"Urgent clients, open requests, memos in progress and total exposure — refreshed for you each morning."},
+    {route:"#/dashboard", sel:"#view .grid .card", title:"The AI did the prep", text:"Your to-do list and the news feed are auto-generated and summarised. You review finished work — you don't assemble it."},
+    {route:"#/dashboard", sel:"[data-nav='requests']", title:"Stop chasing the ops team", text:"Every request you sent to coordination, tracked end-to-end with AI 'at-risk' flags and ready-to-send follow-ups."},
+    {route:"#/company/kipco", coTab:"exposure", sel:"[data-tour='exposure']", title:"Our exposure vs the market", text:"Cash and non-cash limits and utilisation for our book, next to the client's total market exposure from CINET — and your share of wallet."},
+    {route:"#/company/kipco", coTab:"profit", sel:"[data-tour='profit']", title:"Is the relationship worth it?", text:"Income the client generates — interest, FX, liability, LC/LG commission and fees — by year, for the company or the whole group."},
+    {route:"#/memo/cgc", sel:".memo-doc", title:"The finished credit memo", text:"AI assembles the committee memo from filings, financials and CINET. You accept, edit or regenerate — nothing is final until you approve."},
+  ];
+  function startTour(){ ui.tourSeen=true; ui.tour={open:true,step:0}; render(); }
+  function endTour(){ ui.tour={open:false,step:0}; ui.tourSeen=true; document.querySelectorAll('.tour-ring,.tour-pop').forEach(e=>e.remove()); }
+  function tourGo(d){ const n=(ui.tour.step||0)+d; if(n<0)return; if(n>=TOUR.length){endTour();return;} ui.tour.step=n; render(); }
+  function tourRender(){
+    const st=TOUR[ui.tour.step]; if(!st) return;
+    if(st.coTab) ui.coTab=st.coTab;
+    const needNav = location.hash!==st.route;
+    if(needNav){ location.hash=st.route; }
+    setTimeout(()=>{
+      if(!ui.tour.open) return;
+      document.querySelectorAll('.tour-ring,.tour-pop').forEach(e=>e.remove());
+      const el=document.querySelector(st.sel);
+      if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
+      setTimeout(()=>{
+        if(!ui.tour.open) return;
+        const r=el?el.getBoundingClientRect():{top:140,left:320,width:420,height:120};
+        const pad=6, ring=document.createElement('div'); ring.className='tour-ring';
+        ring.style.top=(r.top-pad)+'px'; ring.style.left=(r.left-pad)+'px'; ring.style.width=(r.width+pad*2)+'px'; ring.style.height=(r.height+pad*2)+'px';
+        document.body.appendChild(ring);
+        const pop=document.createElement('div'); pop.className='tour-pop';
+        pop.innerHTML=`<h4>${spark} ${st.title}</h4><p>${st.text}</p><div class="nav"><span class="step">${ui.tour.step+1} / ${TOUR.length}</span>${ui.tour.step>0?`<button class="btn sm" data-act="tour-prev">Back</button>`:''}<button class="btn sm" data-act="tour-skip">Skip</button><button class="btn sm accent" data-act="tour-next">${ui.tour.step===TOUR.length-1?'Done':'Next'}</button></div>`;
+        document.body.appendChild(pop);
+        let top=r.top+r.height+12; if(top+170>window.innerHeight) top=Math.max(12,r.top-178);
+        let left=Math.min(r.left, window.innerWidth-348);
+        pop.style.top=top+'px'; pop.style.left=Math.max(12,left)+'px';
+      }, el?260:0);
+    }, needNav?340:40);
+  }
+  function showTourToast(){
+    if(ui.tourSeen || (ui.tour&&ui.tour.open) || document.getElementById('ttoast')) return;
+    const t=document.createElement('div'); t.className='toast'; t.id='ttoast';
+    t.innerHTML=`<h4>${spark} New here?</h4><p>Take a 60-second guided tour of the workspace. You can replay it anytime from the Tour button.</p><div class="row"><button class="btn sm accent" data-act="tour-start">Start tour</button><button class="btn sm" data-act="tour-later">Maybe later</button></div>`;
+    document.body.appendChild(t);
+  }
+
 
   /* ========== modal ========== */
   function modal(html){
@@ -748,6 +937,13 @@
       if(a==="run-clear"){ DB.leads.forEach(l=>{ if(l.clearance==="requested"){ l.clearance="cleared"; l.stage="Contacted"; } }); render(); return; }
       if(a==="ask"){ ask(+act.dataset.i); return; }
       if(a==="send-chat"){ sendChat($("#chatin").value); return; }
+      if(a==="cotab"){ ui.coTab=act.dataset.tab; render(); return; }
+      if(a==="pgroup"){ ui.profitScope=act.dataset.v; render(); return; }
+      if(a==="tour-start"){ startTour(); return; }
+      if(a==="tour-next"){ tourGo(1); return; }
+      if(a==="tour-prev"){ tourGo(-1); return; }
+      if(a==="tour-skip"){ endTour(); return; }
+      if(a==="tour-later"){ ui.tourSeen=true; const t=document.getElementById('ttoast'); if(t)t.remove(); return; }
       if(a==="close"){ closeModal(); return; }
     }
     if(row && row.dataset.href){
