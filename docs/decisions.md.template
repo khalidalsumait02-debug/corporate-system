@@ -1,0 +1,16 @@
+# Decisions log
+
+> Append-only. PM and architect write entries here for every non-trivial decision.
+
+Format:
+
+```
+## YYYY-MM-DD — <one-line decision>
+- **By:** @<handle>
+- **Context:** <one line — what triggered the decision>
+- **Options considered:** <bullets>
+- **Chosen:** <option>
+- **Why:** <one to three sentences>
+- **Reversible?** yes | no | yes-with-cost
+- **Links:** <issue, PR, architecture doc>
+```

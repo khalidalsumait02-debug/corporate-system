@@ -1,0 +1,46 @@
+# TASKS
+
+> Shared task list across all agents. `@pm-agent` owns the structure.
+> Each agent updates only its own rows. `## Notes` is append-only.
+> See `.claude/agents/_base.md` for the full rules.
+
+## Row format
+
+```
+- [ ] T### @<handle> [risk:<tier>] [size:<XS|S|M|L>] [#<issue>] <one-line deliverable> — <status>
+      branch: <initials>/<agent>/<type>/T###-<slug>
+      depends-on: [T###, T###]
+      files: path/a, path/b
+      artifact: <repo-relative-path the next gate will read>
+```
+
+- `risk:` — `low` | `medium` | `high` | `critical`
+- `size:` — `XS` | `S` | `M` | `L`
+- `branch:` — every task has its own fresh branch off `main`. No two tasks share a branch.
+- `artifact:` — the file the next gate verifies before starting. PM uses it in the dispatch directive.
+- Deliverables are nouns/states, not verbs. ("Settings page renders user email" not "Build settings page".)
+- One owner per task. No dual ownership.
+
+## Next dispatch
+
+PM writes this section after each completion. One line: `@<next-handle> T### — branch <name> — verify artifact <path> — previous PR #<n> merged`. Orchestrator reads it, creates the branch from a clean `main`, and invokes the named agent.
+
+## In Progress
+
+Tasks currently being worked on. Move from Backlog when you start.
+
+## Backlog
+
+Tasks ready to pick up, in priority order (top = highest).
+
+## Done
+
+Completed tasks. Marked `[x]` with artifact link + date.
+
+## Blocked
+
+Tasks that hit a blocker. Note the cause inline.
+
+## Notes
+
+Append-only audit trail. Format: `YYYY-MM-DD @handle: message`.

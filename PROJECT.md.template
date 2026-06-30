@@ -1,0 +1,62 @@
+# PROJECT
+
+> `@pm-agent` fills this during discovery. All agents read this on activation. Keep current.
+
+## One-liner
+
+A single sentence describing what this project is.
+
+## App type
+
+`web` | `mobile` | `CLI` | `library` | `API` | `data-pipeline` | `extension`
+
+## Target users
+
+Who uses this? Roles, expected concurrent users.
+
+## Scale expectations
+
+- **Users at launch:**
+- **Users at 12 months:**
+- **Latency target:** e.g. p95 < 200ms, or "none" if irrelevant.
+- **Uptime target:** e.g. 99.9%, or "none" if irrelevant.
+
+## Stack
+
+- **Frontend:**
+- **Backend:**
+- **Database:**
+- **Hosting:**
+- **Auth:**
+
+## Hard constraints
+
+Anything off the table. e.g. must be GDPR-compliant; no AWS; no native mobile app.
+
+## Soft preferences
+
+Things we lean toward but can flex on.
+
+## Compliance / security
+
+`HIPAA` | `SOC2` | `PCI` | `GDPR` | `none`
+
+## Risk-tier defaults
+
+Which kinds of tasks default to which risk tier in this project? Example: "any change touching `src/payments/**` defaults to `critical`"; "any change touching `src/auth/**` defaults to `high`".
+
+## Performance targets (numbered)
+
+e.g. "Lighthouse perf score ≥ 90 on mobile"; "p95 API < 200ms"; or "none — correctness only".
+
+## v1 must-have features
+
+3-7 bullets, deliverable-shaped.
+
+## Out of scope for v1
+
+Features explicitly NOT being built yet.
+
+## Notes
+
+Anything else agents should know.

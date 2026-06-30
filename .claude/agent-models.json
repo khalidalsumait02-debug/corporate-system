@@ -1,0 +1,17 @@
+{
+  "_comment": "Per-agent model choice — the one place to tune each agent. Standard is opus for every agent. To change one, edit its value below and run .claude/scripts/apply-agent-models.sh (or just ask: /setmodels). Valid models: opus | sonnet | haiku | inherit.",
+  "_pm_note": "pm-agent is LOCKED to opus and cannot be changed. Any other value here is ignored and forced back to opus.",
+  "_speed_tip": "opus = deepest reasoning (slowest). sonnet = balanced. haiku = fastest + cheapest. To speed the team up, drop individual non-PM agents toward sonnet/haiku.",
+  "pm-agent": "opus",
+  "architect-agent": "opus",
+  "design-agent": "opus",
+  "fe-coder": "opus",
+  "be-coder": "opus",
+  "devops-agent": "opus",
+  "reviewer-agent": "opus",
+  "qa-agent": "opus",
+  "optimizer-agent": "opus",
+  "security-agent": "opus",
+  "docs-agent": "opus",
+  "incident-agent": "opus"
+}

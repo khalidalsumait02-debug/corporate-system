@@ -1,0 +1,61 @@
+# Conventions
+
+> `@pm-agent` fills this during discovery so coder agents don't re-derive style from existing files every task.
+
+## Naming
+
+- Files: <camelCase | kebab-case | snake_case>
+- Components: <PascalCase | other>
+- Variables: <camelCase | snake_case>
+- Constants: <SCREAMING_SNAKE | other>
+
+## Project structure
+
+```
+src/
+  ...
+tests/
+  ...
+docs/
+  architecture/
+  design/
+  decisions.md
+  ...
+```
+
+## Frontend (if applicable)
+
+- Framework: <e.g. React + Next.js>
+- Styling: <e.g. Tailwind | CSS Modules | Styled Components>
+- State: <e.g. Zustand | Redux | Context>
+- Forms: <e.g. React Hook Form>
+- Data fetching: <e.g. TanStack Query | SWR>
+
+## Backend (if applicable)
+
+- Framework: <e.g. Fastify | Express | FastAPI | Gin>
+- ORM/DB: <e.g. Prisma + Postgres>
+- Validation: <e.g. Zod | Pydantic>
+- Auth: <e.g. Clerk | Auth0 | custom JWT>
+- Logging: <e.g. pino | structlog>
+
+## Testing
+
+- Unit: <jest | vitest | pytest>
+- Integration: <playwright | cypress | requests>
+- Coverage floor: 80% on changed files.
+
+## Imports
+
+- Order: <external → internal → relative>
+- Aliases: <list path aliases>
+
+## Error shape (BE)
+
+```json
+{ "error": { "code": "STRING_CODE", "message": "human readable", "details": {} } }
+```
+
+## Anti-patterns to avoid in this project
+
+- <Anything project-specific. e.g.: "no default exports", "no anonymous functions in JSX">
