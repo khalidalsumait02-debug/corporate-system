@@ -104,6 +104,7 @@
           </div>
           <button class="bell">${icon('bell')}<span class="dot"></span></button>
         </div>
+        <div class="ribbon">${icon('alert',13)} <span>${DB.disclaimer}</span></div>
         <div id="view"></div>
       </div>
     </div>`;
@@ -163,7 +164,7 @@
       ${statCard("Urgent attention", urgent, "clients flagged red", "alert","r")}
       ${statCard("Open requests", openReq, atRisk+" at risk of delay", "inbox","b")}
       ${statCard("Memos in progress", pendingMemo, "across your portfolio", "file","a")}
-      ${statCard("Total exposure", fmt(portfolio), DB.companies.length+" clients · 3 groups", "money","g")}
+      ${statCard("Total exposure", fmt(portfolio), DB.companies.length+" clients · "+Object.keys(DB.groups).length+" groups", "money","g")}
     </div>`;
 
     const todos = DB.todos.map(t=>{
@@ -182,7 +183,7 @@
           <div class="nt">${n.t}</div>
           <div class="ns">${spark2()} ${n.s}</div>
           <div class="nm">${c?`<a class="tag" href="#/company/${c.id}">${c.name}</a>`:`<span class="tag mkt">Market</span>`}
-            <span class="faint" style="font-size:11.5px">${n.time} ago</span></div>
+            <span class="faint" style="font-size:11.5px">${n.time}</span></div>
         </div></div>`;}).join("");
 
     const clients = DB.companies.map(c=>`
@@ -343,7 +344,8 @@
       const open = ui.openGroups[gname];
       const behind = members.filter(m=>comps.some(k=>["pending","review","progress"].includes(m.memo[k]))).length;
       const allDone = members.every(m=>comps.every(k=>m.memo[k]==="done"));
-      const gstat = allDone?"green":behind>members.length/2?"red":"amber";
+      const pendingMembers = members.filter(m=>comps.some(k=>m.memo[k]==="pending")).length;
+      const gstat = allDone?"green":pendingMembers>=2?"red":"amber";
       const head = `<div class="grp-head ${open?'open':''}" data-act="grp" data-id="${gname}">
         <div class="gi">${icon('layers',18)}</div>
         <div><div class="tname">${gname}</div><div class="tsub">${members.length} ${members.length>1?'companies':'company'} · ${behind} with components outstanding</div></div>
@@ -385,7 +387,7 @@
         </div>
         <p>Aggregate funded exposure post-approval: ${fmt(c.funded)}; non-funded: ${fmt(c.nonfunded)}. Tenor and covenants per standard corporate terms.</p>`},
       {key:"financials", title:"3. Financial Analysis", src:"Spread from FY25 audited financials + management accounts",
-        html:`<p>Key indicators (latest period, KWD millions):</p>
+        html:`<p>Key indicators (illustrative relationship view; see the public-filing snapshot on the company page for reported figures):</p>
         <div class="kv" style="margin:6px 0 4px">
           <div class="c"><div class="k">Revenue</div><div class="v">${c.profit.revenue.toFixed(2)}M</div></div>
           <div class="c"><div class="k">Net interest income</div><div class="v">${c.profit.nii.toFixed(2)}M</div></div>
@@ -543,28 +545,29 @@
   /* ========== ASSISTANT ========== */
   const QA = [
     { q:"Which clients need my attention today?",
-      a:`<h5>3 clients are flagged red right now:</h5><ul>
-        <li><b>Al-Rai Media</b> — facility renewal expires in 2 days (CRN-2041, pending docs).</li>
-        <li><b>Marina Petrochemicals</b> — DSCR covenant headroom breached last quarter; waiver request open.</li>
-        <li><b>Al-Rai Real Estate</b> is amber — flagship occupancy down to ~81%.</li></ul>
-        I've already put the first two at the top of your to-do list.` },
-    { q:"Summarise the Gulf Cement group exposure.",
-      a:`<h5>Gulf Cement Group — 3 companies:</h5><ul>
-        <li>Total exposure <b>KWD 110.0M</b> (funded 74.0M / non-funded 30.0M).</li>
-        <li>Gulf Cement Co. is amber — a kiln-upgrade facility goes to committee Thursday; memo is in review.</li>
-        <li>Gulf Ready-Mix and Gulf Aggregates are on track.</li></ul>
+      a:`<h5>One client is flagged red, and a few ambers need watching:</h5><ul>
+        <li><b>Noor Financial Investment</b> (NIG group) — red; covenant waiver requested, investment-company earnings volatile.</li>
+        <li><b>Combined Group Contracting</b> — amber; performance guarantee pending for the new KOC award, plus two active disputes.</li>
+        <li><b>Shomoul / The Avenues Riyadh</b> (Mabanee) — amber; SAR 11.44bn project financing, drawdown to committee Thursday.</li></ul>
+        I've already put these at the top of your to-do list.` },
+    { q:"Summarise the KIPCO group exposure.",
+      a:`<h5>KIPCO Group — 5 companies in your book:</h5><ul>
+        <li>Total exposure <b>KWD 165.0M</b> across the holding and its subsidiaries.</li>
+        <li>KIPCO (holding) is amber — leverage improving; Fitch revised the outlook to Stable (BB-) in Dec 2025.</li>
+        <li>Burgan Bank is on track; United Real Estate and Qurain Petrochemical are amber (CRE utilisation / petchem spreads).</li></ul>
         The group profitability pack is ready on each company page.` },
     { q:"Draft a follow-up to coordination on the at-risk requests.",
       a:`<h5>I've drafted follow-ups for the ${atRisk} at-risk requests:</h5><ul>
-        <li>CRN-2041 — Al-Rai Media renewal (to Layla H.)</li>
-        <li>CRN-2035 — Marina covenant waiver (to Fatima A.)</li>
-        <li>CRN-2026 — Burgan subsidiary account (to Fatima A.)</li></ul>
+        <li>CRN-3071 — CGC performance guarantee, KOC award (to Layla H.)</li>
+        <li>CRN-3068 — Noor Financial covenant waiver (to Fatima A.)</li>
+        <li>CRN-3061 — Boubyan Petrochemical FX line renewal (to Layla H.)</li>
+        <li>CRN-3050 — Tristar subsidiary account (to Layla H.)</li></ul>
         Open the <a class="linklike" href="#/requests">Request Tracker</a> and click "View draft" on any flagged request to send.` },
     { q:"What's the status of my committee packages?",
       a:`<h5>Across your book:</h5><ul>
-        <li><b>Burgan Industrial Group</b> — package essentially ready (presentation in final review).</li>
-        <li><b>Gulf Cement</b> — memo in review, presentation drafting.</li>
-        <li><b>Al-Rai Group</b> — mixed; Al-Rai Media KYC refresh is the blocker.</li></ul>
+        <li><b>Gulf Cable Group</b> and <b>Boubyan Group</b> — packages essentially ready.</li>
+        <li><b>Mabanee</b> — Avenues Riyadh memo in review, presentation drafting.</li>
+        <li><b>National Industries Group</b> — mixed; Noor Financial is the blocker.</li></ul>
         See the full matrix in the <a class="linklike" href="#/cases">Case Tracker</a>.` },
   ];
 
@@ -637,7 +640,7 @@
     const news = c.news.length?c.news.map(n=>`<div class="news" style="padding:13px 0">
         <span class="dotc" style="background:var(--${n.rag==='red'?'red':n.rag==='amber'?'amber':'green'})"></span>
         <div><div class="nt">${n.t}</div><div class="ns">${spark2()} ${n.s}</div>
-        <div class="faint" style="font-size:11.5px;margin-top:4px">${n.time} ago</div></div></div>`).join("")
+        <div class="faint" style="font-size:11.5px;margin-top:4px">${n.date}</div></div></div>`).join("")
       : `<div class="empty">No recent company news.</div>`;
 
     return `
@@ -647,7 +650,9 @@
     <div class="co-head">
       <div class="co-logo">${c.short}</div>
       <div style="flex:1">
-        <div class="spread"><h1 style="font-size:21px">${c.name}</h1>
+        <div class="spread"><div class="flex"><h1 style="font-size:21px">${c.name}</h1>
+          ${c.ticker?`<span class="pill blue">${c.ticker}</span>`:''}
+          <span class="pill grey">${c.parent?'Group parent':'Subsidiary'}</span></div>
           <span class="pill ${c.rag}"><span class="d"></span>${ragWord[c.rag]}</span></div>
         <div class="co-meta">
           <div class="m"><div class="k">Group</div><div class="v">${c.group||"Standalone"}</div></div>
@@ -665,6 +670,20 @@
 
     ${aiBlock("co_"+c.id, "AI briefing · summarised from filings, financials & news",
       `<p style="margin:0">${c.name} is a ${c.rating.toLowerCase().includes('strong')?'strong':c.rag==='red'?'closely-watched':'satisfactory'} ${c.sector.toLowerCase()} name, banking with us since ${c.since}. Total exposure stands at ${fmt(c.funded+c.nonfunded)} against limits of ${fmt(c.limit)}. ${c.ragReason} Latest ROE ${c.profit.roe} (prior ${c.profit.prevRoe}).</p>`)}
+
+    ${c.pub?`<div class="card" style="margin-top:18px">
+      <div class="ch">${icon('file')}<h3>Public filing snapshot</h3>
+        <span class="pill green">Real public data</span>
+        <div class="right faint" style="font-size:11.5px">Source: ${c.pub.src}</div></div>
+      <div class="cb">
+        <div class="co-meta" style="margin:0">
+          ${c.pub.rev?`<div class="m"><div class="k">Revenue ${c.pub.year?'· '+c.pub.year:''}</div><div class="v">${DB.fmtPub(c.pub.rev,c.pub.cur)}</div></div>`:''}
+          ${c.pub.net?`<div class="m"><div class="k">Net profit</div><div class="v">${DB.fmtPub(c.pub.net,c.pub.cur)}</div></div>`:''}
+          ${c.pub.rating?`<div class="m"><div class="k">Public rating</div><div class="v">${c.pub.rating}</div></div>`:''}
+          ${c.ticker?`<div class="m"><div class="k">Listing</div><div class="v">${c.ticker}</div></div>`:''}
+        </div>
+        ${c.pub.note?`<p class="muted" style="font-size:12.5px;margin:12px 0 0">${c.pub.note}</p>`:''}
+      </div></div>`:''}
 
     <div class="two" style="margin-top:18px">
       <div class="card"><div class="ch">${icon('money')}<h3>Credit facilities</h3>
@@ -688,7 +707,7 @@
           <div class="c"><div class="k">Utilisation</div><div class="v">${Math.round(c.util/c.limit*100)}%</div></div></div>
         <div class="bar-track" style="margin-top:12px"><div class="bar-fill" style="width:${Math.round(c.util/c.limit*100)}%"></div></div>
       </div></div>
-      <div class="card"><div class="ch">${spark2()}<h3>Profitability</h3>${aiBadge('On demand')}</div>
+      <div class="card"><div class="ch">${spark2()}<h3>Relationship economics</h3>${aiBadge('Illustrative · on demand')}</div>
         <div class="cb flush" id="profcard" style="padding:0 16px">${profCard}</div></div>
     </div>
 

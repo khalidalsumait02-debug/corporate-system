@@ -275,3 +275,7 @@ tbody tr.click:hover{background:var(--accent-soft)}
 .modal .mf{padding:14px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
 .x{margin-left:auto;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--muted)}
 .x:hover{background:var(--bg)}
+
+.ribbon{background:#fff8e6;color:#8a5d06;border-bottom:1px solid #f0e3c0;font-size:12px;padding:7px 30px;display:flex;gap:8px;align-items:center;line-height:1.4}
+.ribbon svg{color:var(--amber);flex:none}
+.co-meta .pill{height:21px}

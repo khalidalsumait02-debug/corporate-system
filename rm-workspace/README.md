@@ -2,7 +2,7 @@
 
 A **front-end-only, clickable prototype** of a modern corporate banking workspace
 for a Relationship Manager (RM / RO). Built as a **pitch demo for decision-makers**:
-no backend, no database, no login, no live AI. Every screen shows realistic mock
+no backend, no database, no login, no live AI. Every screen shows a realistic, internally-consistent dataset built around **8 real Boursa Kuwait groups and their subsidiaries** (KIPCO, Tamdeen, National Industries Group, Agility, Mabanee, Boubyan, Combined Group Contracting, Gulf Cable). Real public figures (revenue, net profit, public credit ratings, recent news) are shown to make the demo realistic; all bank-internal figures are fictional. Every screen shows
 data and **pre-generated content clearly labelled as AI-produced**, telling the
 story of a workspace where the AI has *already done the work* and the RM simply
 reviews finished artifacts.
@@ -44,6 +44,6 @@ python3 -m http.server 8000
 ## Notes
 
 - **In-session state only.** Ticking to-dos, accepting memo sections, changing lead stages, and filtering all work live but reset on refresh — there is no storage.
-- **Generic branding** ("Meridian") — no real bank identity. All names, CR numbers and figures are illustrative.
+- **Generic bank branding** ("Meridian") — no real bank identity. Real *public* company data (figures, ratings, news) is used for realism; all *bank-internal* data (facilities, exposures, internal ratings, requests, relationships) is fictional. A disclaimer ribbon states this on every screen.
 - Everything AI-produced carries a consistent **AI badge + source line + accept/edit/regenerate** treatment.
 - This is a prototype for buy-in. A production build would add real data, authentication, and compliance controls.
