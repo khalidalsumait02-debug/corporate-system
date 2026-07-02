@@ -386,6 +386,47 @@ tbody tr.click:hover{background:var(--accent-soft)}
   .help-btn{padding:0 11px}
 }
 
+/* ---- command palette ---- */
+.cmdk-bg{position:fixed;inset:0;background:rgba(15,44,68,.4);backdrop-filter:blur(3px);z-index:90;display:flex;justify-content:center;align-items:flex-start;padding:12vh 16px 16px;animation:fi .12s}
+.cmdk{width:620px;max-width:100%;background:#fff;border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden;animation:fi .15s}
+.cmdk .cin{display:flex;align-items:center;gap:11px;padding:15px 17px;border-bottom:1px solid var(--line)}
+.cmdk .cin svg{width:18px;height:18px;color:var(--faint)}
+.cmdk .cin input{flex:1;border:none;outline:none;font-size:15.5px;font-family:inherit;color:var(--ink);background:none}
+.cmdk .list{max-height:56vh;overflow:auto;padding:8px}
+.cmdk .grp{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700;padding:11px 10px 4px}
+.cmdk .it{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:9px;cursor:pointer}
+.cmdk .it.sel{background:var(--accent-soft)}
+.cmdk .it .cic{width:30px;height:30px;border-radius:8px;background:#eef1f4;display:grid;place-items:center;color:var(--muted);flex:none}
+.cmdk .it .cic svg{width:15px;height:15px}
+.cmdk .it .ctx{flex:1;min-width:0}
+.cmdk .it .ct{font-weight:600;font-size:13.5px}
+.cmdk .it .cs{font-size:12px;color:var(--faint)}
+.cmdk .foot{display:flex;gap:14px;padding:9px 15px;border-top:1px solid var(--line-soft);color:var(--faint);font-size:11.5px}
+kbd{font-family:inherit;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 6px;background:#fafbfc;box-shadow:0 1px 0 var(--line)}
+.search .kbd-hint{position:absolute;right:10px;top:9px;pointer-events:none}
+
+/* ---- next-best-action ---- */
+.nba{display:flex;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line-soft);align-items:flex-start}
+.nba:last-child{border:0}
+.nba .nic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex:none}
+.nba .ntx{flex:1;min-width:0}
+.nba .nt{font-weight:650;font-size:13.5px}
+.nba .ns{font-size:12.5px;color:var(--muted);margin-top:2px}
+.nba .act{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+
+/* ---- activity timeline / quick actions ---- */
+.qa-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.tl{position:relative;padding-left:6px}
+.tl-item{display:flex;gap:12px;padding:11px 0;border-bottom:1px solid var(--line-soft)}
+.tl-item:last-child{border:0}
+.tl-ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;flex:none;background:#eef1f4;color:var(--muted)}
+.tl-ic svg{width:15px;height:15px}
+.tl-tx{flex:1;min-width:0}
+.tl-tx .tt{font-weight:600;font-size:13px}
+.tl-tx .tm{font-size:12px;color:var(--faint);margin-top:1px}
+.field{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:13.5px;outline:none;margin-top:8px}
+.field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
 </style>
 </head>
 <body>
@@ -740,12 +781,13 @@ window.DB = (function () {
   const DB = window.DB;
   const $ = (s, r=document) => r.querySelector(s);
   const fmt = DB.fmt;
-  const ui = { openGroups:{}, accepted:{}, editing:{}, generated:{}, chat:[], chatBusy:false, coTab:'overview', profitScope:'company', tour:{open:false,step:0}, tourSeen:false };
+  const ui = { openGroups:{}, accepted:{}, editing:{}, generated:{}, chat:[], chatBusy:false, coTab:'overview', profitScope:'company', tour:{open:false,step:0}, tourSeen:false, cmd:{open:false}, activity:{} };
 
   /* ---------- icons ---------- */
   const P = {
     home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/>',
     menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
+    phone:'<path d="M5 4h3l2 5-2 1a12 12 0 0 0 5 5l1-2 5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
     chart:'<line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="12" width="3" height="6"/><rect x="11" y="8" width="3" height="10"/><rect x="16" y="5" width="3" height="13"/>',
     inbox:'<path d="M4 13h4l2 3h4l2-3h4"/><path d="M4 13l2-8h12l2 8v6H4z"/>',
     layers:'<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/>',
@@ -840,6 +882,7 @@ window.DB = (function () {
           <div class="search">
             ${icon('search')}
             <input id="gsearch" placeholder="Search clients, groups, CR numbers…" autocomplete="off"/>
+            <span class="kbd-hint" data-act="cmd-open"><kbd>⌘K</kbd></span>
             <div class="results" id="sresults"></div>
           </div>
           <button class="help-btn" data-act="tour-start">${icon('spark')} Tour</button>
@@ -899,6 +942,7 @@ window.DB = (function () {
   /* ========== PAGE 1 — DASHBOARD ========== */
   function pageDashboard(){
     setCrumb(["Meridian","Daily Dashboard"]);
+    const pnba = portfolioNBA();
     const urgent = DB.companies.filter(c=>c.rag==="red").length;
     const openReq = DB.requests.filter(r=>r.status!=="Completed").length;
     const pendingMemo = DB.companies.filter(c=>["review","progress","pending"].includes(c.memo.dcr)).length;
@@ -947,9 +991,9 @@ window.DB = (function () {
     ${stats}
     <div class="grid" style="grid-template-columns:1fr 1fr">
       <div class="card">
-        <div class="ch">${icon('check')}<h3>Today's priorities</h3>${aiBadge('Auto-generated')}
-          <div class="right faint" style="font-size:12px">${DB.todos.filter(t=>!t.done).length} open</div></div>
-        <div class="cb flush">${todos}</div>
+        <div class="ch">${spark2()}<h3>Today — recommended actions</h3>${aiBadge('AI-prioritised')}
+          <div class="right"><span class="pill red"><span class="d"></span>${pnba.filter(x=>x.it.sev==='red').length} urgent</span></div></div>
+        <div class="cb flush">${pnba.slice(0,6).map(({c,it})=>nbaRowHTML(it,c,true)).join("")||'<div class="empty">All clear — nothing needs action.</div>'}</div>
       </div>
       <div class="card">
         <div class="ch">${icon('bell')}<h3>News & client signals</h3>${aiBadge('AI-summarised')}</div>
@@ -1397,7 +1441,7 @@ window.DB = (function () {
 
     const TABS=[["overview","Overview","home",0],["exposure","Exposure & Limits","layers",0],
       ["profit","Profitability","chart",0],["facilities","Facilities & Collateral","money",0],
-      ["covenants","Covenants & Documents","file",attn],["news","News","bell",0]];
+      ["covenants","Covenants & Documents","file",attn],["news","News","bell",0],["activity","Activity","clock",0]];
 
     const head = `
     <div class="page-head" style="margin-bottom:14px"><div>
@@ -1425,7 +1469,7 @@ window.DB = (function () {
     </div>
     <div class="tabs">${TABS.map(t=>`<div class="tab ${tab===t[0]?'on':''}" data-act="cotab" data-tab="${t[0]}">${icon(t[2])}${t[1]}${t[3]?`<span class="ct">${t[3]}</span>`:''}</div>`).join("")}</div>`;
 
-    const body = {overview:coOverview, exposure:coExposure, profit:coProfit, facilities:coFacilities, covenants:coCovenants, news:coNews}[tab](c);
+    const body = {overview:coOverview, exposure:coExposure, profit:coProfit, facilities:coFacilities, covenants:coCovenants, news:coNews, activity:coActivity}[tab](c);
     return head + `<div class="fade-in">${body}</div>`;
   }
 
@@ -1461,7 +1505,7 @@ window.DB = (function () {
         <div class="c"><div class="k">KYC review</div><div class="v">${c.kyc.review}</div></div>
         <div class="c" style="grid-column:1/3"><div class="k">Status</div><div class="v">${c.kyc.status==='Current'?pill('Current','green'):pill(c.kyc.status,'amber')}</div></div></div></div></div>`;
 
-    return kpis + aiBlock("co_"+c.id, "AI briefing · summarised from filings, financials & news",
+    return kpis + nbaCard(c) + aiBlock("co_"+c.id, "AI briefing · summarised from filings, financials & news",
       `<p style="margin:0">${c.name} is a ${c.rating.toLowerCase().includes('strong')?'strong':c.rag==='red'?'closely-watched':'satisfactory'} ${c.sector.toLowerCase()} name, banking with us since ${c.since}. Our exposure is ${fmt(c.exposure.total.util)} (${Math.round(c.market.share*100)}% of an estimated ${fmt(c.market.total.util)} total market exposure). ${c.ragReason} FY2025 relationship income ${kwdm(c.income['2025'].total)} at ${c.rorwa} RoRWA.</p>`)
       + `<div class="two" style="margin-top:18px">${attnCard}${pubCard||kyc}</div>` + (pubCard?`<div class="two" style="margin-top:18px">${kyc}</div>`:'');
   }
@@ -1681,6 +1725,11 @@ window.DB = (function () {
       if(a==="cotab"){ ui.coTab=act.dataset.tab; render(); return; }
       if(a==="pgroup"){ ui.profitScope=act.dataset.v; render(); return; }
       if(a==="tour-start"){ startTour(); return; }
+      if(a==="cmd-open"){ openCmd(); return; }
+      if(a==="qa"){ activityModal(id, act.dataset.type); return; }
+      if(a==="qa-save"){ const f=document.getElementById('qa-field'); const ty=act.dataset.type; const dflt={call:'Call logged',note:'Note added',meeting:'Meeting logged',reminder:'Reminder set',opportunity:'Opportunity logged'}[ty]||'Logged'; logActivity(id, ty, (f&&f.value.trim())||dflt); closeModal(); ui.coTab='activity'; render(); return; }
+      if(a==="nba-review"||a==="nba-remind"){ activityModal(id,'reminder'); return; }
+      if(a==="nba-note"){ activityModal(id,'opportunity'); return; }
       if(a==="tour-next"){ tourGo(1); return; }
       if(a==="tour-prev"){ tourGo(-1); return; }
       if(a==="tour-skip"){ endTour(); return; }
@@ -1718,6 +1767,129 @@ window.DB = (function () {
       </div>
       <div class="mf"><button class="btn" data-act="close">Edit</button><button class="btn accent" data-act="close">${icon('send',15)} Send to coordination</button></div>`);
   }
+
+  /* ========== NEXT-BEST-ACTION ========== */
+  function nbaFor(c){
+    const out=[];
+    const br=c.covenants.find(v=>v.status==="breach");
+    if(br) out.push({sev:"red",ic:"alert",t:"Covenant breach — schedule review",s:`${br.name}: ${br.actual} vs required ${br.req}`,action:{label:"Schedule review",act:"nba-review"}});
+    const ar=DB.requests.find(r=>r.companyId===c.id&&r.atRisk&&r.status!=="Completed");
+    if(ar) out.push({sev:"red",ic:"inbox",t:"Chase at-risk request",s:`${ar.id} · ${ar.type} — flagged likely to slip`,action:{label:"View AI follow-up",act:"followup",id:ar.id}});
+    const od=c.documents.find(d=>d.status==="overdue");
+    if(od) out.push({sev:"red",ic:"clock",t:"Overdue document",s:`${od.doc} is overdue`,action:{label:"Set reminder",act:"nba-remind"}});
+    if(["review","progress","pending"].includes(c.memo.dcr)) out.push({sev:"amber",ic:"file",t:"Finalise credit package",s:"Committee memo not yet complete",action:{label:"Open memo",href:`#/memo/${c.id}`}});
+    if(c.market.share<0.25) out.push({sev:"amber",ic:"target",t:"Grow share of wallet",s:`Only ${Math.round(c.market.share*100)}% of ~${fmt(c.market.total.util)} market exposure — headroom to grow`,action:{label:"Log opportunity",act:"nba-note"}});
+    if(c.kyc.status!=="Current") out.push({sev:"amber",ic:"users",t:"KYC refresh due",s:"Periodic review outstanding",action:{label:"Set reminder",act:"nba-remind"}});
+    return out;
+  }
+  function nbaBtn(it,c){ const a=it.action; if(!a) return '';
+    return a.href?`<a class="btn sm accent" href="${a.href}">${a.label}</a>`
+      :`<button class="btn sm accent" data-act="${a.act}" data-id="${a.id||c.id}">${a.label}</button>`; }
+  function nbaRowHTML(it,c,withClient){
+    return `<div class="nba"><div class="nic" style="background:var(--${it.sev}-bg);color:var(--${it.sev})">${icon(it.ic,16)}</div>
+      <div class="ntx"><div class="nt">${it.t}${withClient?` · <a class="linklike" href="#/company/${c.id}">${c.name}</a>`:''}</div>
+        <div class="ns">${it.s}</div><div class="act">${nbaBtn(it,c)}</div></div></div>`;
+  }
+  function nbaCard(c){ const items=nbaFor(c); if(!items.length) return '';
+    return `<div class="card"><div class="ch">${spark2()}<h3>Recommended next actions</h3><span class="pill ai">${items.length}</span></div>
+      <div class="cb flush">${items.map(it=>nbaRowHTML(it,c,false)).join("")}</div></div>`; }
+  function portfolioNBA(){ const rows=[]; DB.companies.forEach(c=>nbaFor(c).forEach(it=>rows.push({c,it})));
+    rows.sort((a,b)=>(a.it.sev==='red'?0:1)-(b.it.sev==='red'?0:1)); return rows; }
+
+  /* ========== ACTIVITY / CALL LOG ========== */
+  function defaultTimeline(c){
+    const fac=c.facilities[0];
+    return [
+      {type:"call", text:`AI call summary — reviewed the ${fac.type.toLowerCase()} and pricing; client comfortable with terms, to revert on covenants.`, when:"2 days ago"},
+      {type:"note", text:"FY2025 audited financials received and spread into the model.", when:"1 week ago"},
+      {type:"meeting", text:`Quarterly relationship review held with ${c.parent?'group':'company'} CFO.`, when:"3 weeks ago"},
+    ];
+  }
+  function coActivity(c){
+    const icmap={call:"phone",note:"edit",meeting:"users",reminder:"clock",opportunity:"target"};
+    const acts=(ui.activity[c.id]||[]).concat(defaultTimeline(c));
+    return `<div class="card"><div class="ch">${icon('clock')}<h3>Activity & relationship log</h3>${aiBadge('Auto-logged')}
+        <div class="right faint" style="font-size:12px">Calls, notes & meetings — captured for you</div></div>
+      <div class="cb">
+        <div class="qa-bar">
+          <button class="btn sm" data-act="qa" data-type="call" data-id="${c.id}">${icon('phone',14)} Log call</button>
+          <button class="btn sm" data-act="qa" data-type="note" data-id="${c.id}">${icon('edit',14)} Add note</button>
+          <button class="btn sm" data-act="qa" data-type="meeting" data-id="${c.id}">${icon('users',14)} Log meeting</button>
+          <button class="btn sm" data-act="qa" data-type="reminder" data-id="${c.id}">${icon('clock',14)} Set reminder</button>
+        </div>
+        <div class="divider"></div>
+        <div class="tl">${acts.map(a=>`<div class="tl-item"><div class="tl-ic">${icon(icmap[a.type]||'edit',15)}</div>
+          <div class="tl-tx"><div class="tt">${a.text}</div><div class="tm">${a.when[0].toUpperCase()+a.when.slice(1)}${ui.activity[c.id]&&ui.activity[c.id].includes(a)?' · you':''}</div></div></div>`).join("")}</div>
+      </div></div>`;
+  }
+  function logActivity(cid,type,text){ (ui.activity[cid]=ui.activity[cid]||[]).unshift({type,text,when:"just now"}); }
+  function activityModal(cid,type){
+    const titles={call:"Log a call",note:"Add a note",meeting:"Log a meeting",reminder:"Set a reminder",opportunity:"Log an opportunity"};
+    const ph={call:"What did you discuss? The assistant will summarise it into the log.",note:"Add your note…",meeting:"Meeting notes & attendees…",reminder:"What to follow up on — and when.",opportunity:"Describe the cross-sell / wallet-share opportunity."};
+    const ic={call:"phone",note:"edit",meeting:"users",reminder:"clock",opportunity:"target"}[type]||"edit";
+    modal(`<div class="mh2">${icon(ic)}<h3>${titles[type]||'Add'}</h3><button class="x" data-act="close">${icon('x')}</button></div>
+      <div class="mb2"><div class="muted" style="font-size:12.5px;font-weight:600">${DB.byId[cid].name}</div>
+        <textarea class="field" id="qa-field" rows="4" placeholder="${ph[type]||''}"></textarea></div>
+      <div class="mf"><button class="btn" data-act="close">Cancel</button>
+        <button class="btn accent" data-act="qa-save" data-id="${cid}" data-type="${type}">${icon('check',15)} Save to log</button></div>`);
+    setTimeout(()=>{const f=document.getElementById('qa-field'); if(f) f.focus();},60);
+  }
+
+  /* ========== COMMAND PALETTE (Cmd/Ctrl-K) ========== */
+  function openCmd(){ ui.cmd={open:true,q:"",sel:0,flat:[]};
+    const bg=document.createElement('div'); bg.className='cmdk-bg'; bg.id='cmdk';
+    bg.innerHTML=`<div class="cmdk">
+      <div class="cin">${icon('search')}<input id="cmd-in" placeholder="Search clients, pages, actions…" autocomplete="off"/><kbd>Esc</kbd></div>
+      <div class="list" id="cmd-list"></div>
+      <div class="foot"><span><kbd>↑</kbd><kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>⌘K</kbd> toggle</span></div>
+    </div>`;
+    bg.addEventListener('click',e=>{ if(e.target===bg) closeCmd(); });
+    document.body.appendChild(bg);
+    const inp=document.getElementById('cmd-in');
+    inp.addEventListener('input',()=>{ ui.cmd.q=inp.value; ui.cmd.sel=0; renderCmdList(); });
+    inp.focus(); renderCmdList();
+  }
+  function closeCmd(){ ui.cmd.open=false; const b=document.getElementById('cmdk'); if(b) b.remove(); }
+  function cmdGroups(){
+    const q=(ui.cmd.q||'').toLowerCase().trim();
+    const pages=[['Dashboard','#/dashboard','home'],['Portfolio Analytics','#/analytics','chart'],['Request Tracker','#/requests','inbox'],['Case Tracker','#/cases','layers'],['Leads','#/leads','target'],['Watchlist','#/watchlist','alert'],['RM Assistant','#/assistant','spark']];
+    const clients=DB.companies.filter(c=>!q||c.name.toLowerCase().includes(q)||(c.group||'').toLowerCase().includes(q)||c.cr.toLowerCase().includes(q))
+      .slice(0,7).map(c=>({ic:'building',t:c.name,s:(c.group||'Standalone')+' · '+c.cr,run:()=>{location.hash='#/company/'+c.id;}}));
+    const pg=pages.filter(p=>!q||p[0].toLowerCase().includes(q)).map(p=>({ic:p[2],t:p[0],s:'Go to page',run:()=>{location.hash=p[1];}}));
+    const actions=[{ic:'spark',t:'Take the guided tour',s:'Action',run:()=>{closeCmd();startTour();}}].filter(a=>!q||a.t.toLowerCase().includes(q));
+    const g=[];
+    if(clients.length) g.push({label:'Clients',items:clients});
+    if(pg.length) g.push({label:'Go to',items:pg});
+    if(actions.length) g.push({label:'Actions',items:actions});
+    return g;
+  }
+  function renderCmdList(){
+    const g=cmdGroups(); ui.cmd.flat=[]; g.forEach(gr=>gr.items.forEach(it=>ui.cmd.flat.push(it)));
+    if(ui.cmd.sel>=ui.cmd.flat.length) ui.cmd.sel=Math.max(0,ui.cmd.flat.length-1);
+    let i=-1;
+    const html=g.map(gr=>`<div class="grp">${gr.label}</div>`+gr.items.map(it=>{ i++; const idx=i;
+      return `<div class="it ${idx===ui.cmd.sel?'sel':''}" data-cmd="${idx}"><div class="cic">${icon(it.ic,15)}</div><div class="ctx"><div class="ct">${it.t}</div><div class="cs">${it.s}</div></div></div>`;
+    }).join("")).join("");
+    const list=document.getElementById('cmd-list');
+    list.innerHTML=html||`<div class="empty">No matches</div>`;
+    list.querySelectorAll('[data-cmd]').forEach(el=>el.addEventListener('click',()=>cmdRun(+el.dataset.cmd)));
+  }
+  function cmdMove(d){ if(!ui.cmd.flat.length) return; ui.cmd.sel=(ui.cmd.sel+d+ui.cmd.flat.length)%ui.cmd.flat.length; renderCmdSel(); }
+  function renderCmdSel(){ const list=document.getElementById('cmd-list'); if(!list) return;
+    list.querySelectorAll('[data-cmd]').forEach(el=>el.classList.toggle('sel',+el.dataset.cmd===ui.cmd.sel));
+    const sel=list.querySelector('.it.sel'); if(sel) sel.scrollIntoView({block:'nearest'}); }
+  function cmdRun(i){ const it=ui.cmd.flat[i]; if(!it) return; const r=it.run; closeCmd(); r(); }
+
+  document.addEventListener('keydown',(e)=>{
+    if((e.metaKey||e.ctrlKey)&&(e.key==='k'||e.key==='K')){ e.preventDefault(); ui.cmd.open?closeCmd():openCmd(); return; }
+    if(ui.cmd.open){
+      if(e.key==='Escape'){ closeCmd(); }
+      else if(e.key==='ArrowDown'){ e.preventDefault(); cmdMove(1); }
+      else if(e.key==='ArrowUp'){ e.preventDefault(); cmdMove(-1); }
+      else if(e.key==='Enter'){ e.preventDefault(); cmdRun(ui.cmd.sel); }
+    }
+  });
+
 
   /* ---------- boot ---------- */
   shell();

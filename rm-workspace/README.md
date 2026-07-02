@@ -31,6 +31,9 @@ python3 -m http.server 8000
 | **Leads** | Upload → AI client-matching → request clearance → active-leads funnel with editable stages. |
 | **Per-Company page** | AI briefing, facilities, exposure, KYC, on-demand profitability tables, company news. |
 | **RM Assistant** | A scripted, plain-language assistant over the portfolio (clearly labelled as a demo). |
+| **Next-best-action** | An AI-prioritised "recommended actions" worklist on the dashboard and per client (covenant breaches, at-risk requests, renewals, share-of-wallet, KYC) with one-click actions. |
+| **Command palette (⌘K / Ctrl-K)** | Keyboard-first jump to any client, group, page or action. |
+| **Activity & relationship log** | Auto-logged calls, notes and meetings per client, with one-tap Log call / Add note / Log meeting / Set reminder. |
 
 ## Suggested demo walkthrough (~90 seconds)
 
@@ -42,6 +45,8 @@ python3 -m http.server 8000
 6. **Leads** — select new prospects, request clearance, run the simulated review, move a lead's stage.
 
 ## Notes
+
+- **Responsive** — works on desktop and mobile (off-canvas sidebar, stacked cards, scrollable tables).
 
 - **In-session state only.** Ticking to-dos, accepting memo sections, changing lead stages, and filtering all work live but reset on refresh — there is no storage.
 - **Generic bank branding** ("Meridian") — no real bank identity. Real *public* company data (figures, ratings, news) is used for realism; all *bank-internal* data (facilities, exposures, internal ratings, requests, relationships) is fictional. A disclaimer ribbon states this on every screen.
